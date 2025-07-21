@@ -1,10 +1,11 @@
 streamlit == 1.31.0
 langchain == 0.1.5
 langchain-openai == 0.0.5
-langchain-community
+langchain-community 
 openai == 1.11.0
 pypdf2 == 3.0.1
-faiss-cpu == 1.7.4
+faiss-cpu # <--- This line is changed
 pandas == 2.1.4
 python-dotenv == 1.0.0
 matplotlib == 3.8.2
+plotly
