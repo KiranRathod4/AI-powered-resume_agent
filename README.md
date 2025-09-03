@@ -43,13 +43,14 @@ Here’s how my app adds value:
 
 ✅ Integration-ready – It can be embedded into ATS systems or automated hiring pipelines, which is not possible with ChatGPT UI directly.
 
-🔄 Bonus Comparison Table (Optional to Mention)
-Feature	         ChatGPT UI	     My App
-Resume parsing	 ❌ Manual	      ✅ Auto
-JD matching	    ❌ Manual	      ✅ Built-in
-Bulk resume support	❌	         ✅
-Recruiter-friendly interface	❌	✅
-Pipeline integration ready	❌	  ✅
+| Feature                      | ChatGPT UI | My App     |
+| ---------------------------- | ---------- | ---------- |
+| Resume parsing               | ❌ Manual   | ✅ Auto     |
+| JD matching                  | ❌ Manual   | ✅ Built-in |
+| Bulk resume support          | ❌          | ✅          |
+| Recruiter-friendly interface | ❌          | ✅          |
+| Pipeline integration ready   | ❌          | ✅          |
+
 
 
 
