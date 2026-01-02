@@ -1,11 +1,34 @@
-streamlit == 1.31.0
-langchain == 0.1.5
-langchain-openai == 0.0.5
-langchain-community 
-openai == 1.11.0
-pypdf2 == 3.0.1
-faiss-cpu # <--- This line is changed
-pandas == 2.1.4
-python-dotenv == 1.0.0
-matplotlib == 3.8.2
-plotly
+# Core
+python-dotenv>=1.0.0
+
+# UI
+streamlit>=1.32.0
+plotly>=5.0.0
+
+# LLM + LangChain - FIXED VERSIONS
+langchain>=0.2.0
+langchain-community>=0.2.0
+langchain-core>=0.2.0
+langchain-text-splitters>=0.2.0
+langchain-huggingface>=0.0.1
+langchain-ollama>=0.1.0
+
+# Optional GPT support (only used if USE_GPT=true)
+langchain-openai>=0.1.0
+
+# Local LLM
+ollama>=0.1.8
+
+# Embeddings + Vector DB
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4
+
+# File parsing
+PyPDF2>=3.0.1
+
+# Additional dependencies (often needed)
+numpy>=1.24.0
+pydantic>=2.0.0
+SQLAlchemy>=2.0.0
+aiohttp>=3.8.0
+requests>=2.31.0

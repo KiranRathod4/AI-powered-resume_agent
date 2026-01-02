@@ -1,190 +1,297 @@
+AI Resume Analyzer with Local LLM + RAG + ATS Optimization
 
-# 🤖 AI-Powered Resume Agent
+Good. This is the **right ambition** — but I’m not going to dump chaos on you.
 
-A smart recruitment assistant built using **Python**, **Streamlit**, **LangChain**, and **OpenAI API**. This project analyzes resumes, extracts key information, and assists in intelligent job matching.
 
-Deployed using **Docker**, **GitHub Actions**, and **AWS EC2**.
-
----
-
-## 📌 Features
-
--  Upload and analyze resumes (PDF/Text)
--  Extract skills, education, and experience using LangChain & LLM
--  Use OpenAI API for intelligent response generation
--  Integrate job description parsing
--  PDF generation for recommendations
--  Streamlit-based web interface
--  Dockerized for smooth deployment
--  Deployed on AWS EC2 with CI/CD via GitHub Actions
+You asked for **all four**, so I’ll give you **all four**, **in the correct order**, with **clean, production-grade structure**.
+This is how a real engineer would evolve the project.
 
 ---
 
-##  Tech Stack
+# STEP 1️⃣ — Add GPT ↔ LLaMA Toggle (Clean, Explicit, Optional)
 
-| Tool         | Purpose                          |
-|--------------|----------------------------------|
-| Python       | Core application logic           |
-| Streamlit    | Interactive UI                   |
-| LangChain    | LLM orchestration and chaining   |
-| OpenAI API   | Resume parsing & NLP tasks       |
-| Docker       | Containerization                 |
-| GitHub Actions | CI/CD pipeline                 |
-| AWS EC2      | App Hosting & Deployment         |
-| Git + GitHub | Version control & collaboration  |
- PyPDF2        | PDF parsing & manipulation       |
+### Goal
+
+- Default: **LLaMA 3.2 (free, local)**
+- Optional: **GPT (paid, only if key exists)**
+- ZERO code duplication
+- ONE switch
+
 ---
 
-## 📂 Project Structure
+## 1.1 Create a config file
 
+### `config.py`
+
+```python
+import os
+
+USE_GPT = os.getenv("USE_GPT", "false").lower() == "true"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ```
 
-AI-powered-resume\_agent/
-├── app.py                  # Main Streamlit App
-├── agents.py               # LLM and LangChain logic
-├── ui.py                   # Streamlit UI helpers
-├── requirements.txt        # Python dependencies
-├── Dockerfile              # Docker container config
-├── .github/workflows/      # GitHub Actions CI/CD
-│   └── deploy.yml
-├── nginx/                  # (Optional) Reverse proxy configs
-├── scripts/                # Deployment & helper scripts
-├── .gitignore
+- Default → LLaMA
+- If user sets `USE_GPT=true` + API key → GPT activates
+
+---
+
+## 1.2 Create a single LLM factory (this is key)
+
+### `llm_factory.py`
+
+```python
+from config import USE_GPT, OPENAI_API_KEY
+
+def get_llm(temperature=0.2):
+    if USE_GPT and OPENAI_API_KEY:
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model="gpt-4o",
+            temperature=temperature,
+            api_key=OPENAI_API_KEY
+        )
+    else:
+        from langchain_community.llms import Ollama
+        return Ollama(
+            model="llama3.2",
+            temperature=temperature
+        )
+```
+
+👉 **Everywhere in code → use `get_llm()`**
+
+No conditionals. No mess.
+
+---
+
+## 1.3 Update your agent to use the factory
+
+In `agent.py`:
+
+```python
+from llm_factory import get_llm
+```
+
+Replace:
+
+```python
+llm = self.get_llm()
+```
+
+With:
+
+```python
+llm = get_llm()
+```
+
+That’s it.
+
+---
+
+### ✅ Result
+
+- Free by default
+- GPT available when needed
+- No rewrites later
+- Recruiter-friendly design
+
+---
+
+# STEP 2️⃣ — Optimize Prompts (Resume Quality Upgrade)
+
+Your logic is solid.
+Your **prompts were the weak point**.
+
+We fix that now.
+
+---
+
+## 2.1 Centralize prompts (non-negotiable)
+
+### `prompts.py`
+
+```python
+SKILL_EXTRACTION_PROMPT = """
+Extract a clean list of technical and professional skills from the job description.
+Rules:
+- No explanations
+- No duplicates
+- Use industry-standard names
+- Return ONLY a Python list
+
+Job Description:
+{jd}
+"""
+
+RESUME_SCORING_PROMPT = """
+Evaluate how clearly the resume demonstrates proficiency in {skill}.
+Rules:
+1. Start with a number from 0–10
+2. Then give ONE sentence justification
+3. Base judgment ONLY on resume evidence
+"""
+
+RESUME_REWRITE_PROMPT = """
+Rewrite the resume to be ATS-optimized and recruiter-ready.
+
+Rules:
+- Quantify achievements
+- Use strong action verbs
+- Preserve truthfulness
+- Do NOT invent experience
+- Optimize for {target_role}
+
+Resume:
+{resume}
+"""
+```
+
+---
+
+## 2.2 Why this improves quality
+
+- Less hallucination
+- Better consistency
+- Stronger ATS alignment
+- GPT & LLaMA both behave better
+
+---
+
+# STEP 3️⃣ — Refactor into Services (Clean Architecture)
+
+Right now your agent is doing **too much**.
+
+We split responsibilities **without overengineering**.
+
+---
+
+## Final Folder Structure (Professional)
+
+```
+ai_resume_agent/
+│
+├── agent.py                # Orchestrator only
+├── llm_factory.py          # GPT ↔ LLaMA toggle
+├── prompts.py              # All prompts
+├── config.py               # Env config
+│
+├── services/
+│   ├── parser.py           # PDF/TXT extraction
+│   ├── embeddings.py       # Vector store creation
+│   ├── analysis.py         # Skill scoring logic
+│   ├── improvement.py     # Resume rewriting
+│
+├── frontend/
+│   └── app.py              # Streamlit UI
+│
 └── README.md
-
-````
-
----
-
-##  Setup & Run Locally
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/KiranRathod4/AI-powered-resume_agent.git
-cd AI-powered-resume_agent
-````
-
-### 2. Create Virtual Environment & Install Dependencies
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Set Your OpenAI API Key
-
-Create a `.env` file in the root:
-
-```env
-OPENAI_API_KEY=your-openai-key-here
-```
-
-Or set it as an environment variable:
-
-```bash
-export OPENAI_API_KEY=your-openai-key-here
-```
-
-### 4. Run the Streamlit App
-
-```bash
-streamlit run app.py
 ```
 
 ---
 
-##  Run with Docker
+## What `agent.py` becomes (important)
 
-### 1. Build Docker Image
+`agent.py` should **NOT contain logic**.
+
+It should only:
+
+- call services
+- pass data
+- return results
+
+That’s how **maintainable systems** are built.
+
+---
+
+# STEP 4️⃣ — README + Demo Story (Recruiter Weapon)
+
+This is where most people fail.
+We won’t.
+
+---
+
+## 4.1 README Structure (copy this)
+
+### 🔹 Project Title
+
+**AI-Powered Resume Analyzer (Local-First, Privacy-Safe)**
+
+---
+
+### 🔹 Problem
+
+- Resume screening is opaque
+- ATS filters reject good candidates
+- Generic advice lacks context
+
+---
+
+### 🔹 Solution
+
+An AI system that:
+
+- Analyzes resumes semantically
+- Matches them against job descriptions
+- Scores skills transparently
+- Suggests targeted improvements
+- Runs **locally without API keys**
+
+---
+
+### 🔹 Architecture
+
+- **LLM**: LLaMA 3.2 (Ollama) / GPT-4o (optional)
+- **Embeddings**: HuggingFace (local)
+- **RAG**: FAISS
+- **UI**: Streamlit
+
+---
+
+### 🔹 Key Features
+
+- Resume ↔ JD skill matching
+- Numeric scoring with reasoning
+- Weakness & improvement detection
+- Resume rewriting (ATS optimized)
+- Offline-first AI (privacy focused)
+
+---
+
+### 🔹 Why This Is Different
+
+- No API dependency
+- No hidden scoring
+- No black-box advice
+- Recruiter & candidate friendly
+
+---
+
+### 🔹 Demo Flow (THIS IS GOLD)
+
+1. Upload resume
+2. Paste JD
+3. View skill scorecard
+4. See missing skills
+5. Generate improved resume
+6. Ask follow-up questions
+
+---
+
+### 🔹 How to Run
 
 ```bash
-docker build -t resume-agent .
-```
-
-### 2. Run Docker Container
-
-```bash
-docker run -e OPENAI_API_KEY=your-key -p 8501:8501 resume-agent
+ollama serve
+streamlit run frontend/app.py
 ```
 
 ---
 
-## Deployment on AWS EC2
+## 4.2 What to say in interviews (memorize this)
 
-### 1. Launch EC2 Instance (Ubuntu)
+> “I built a resume analysis system that runs locally using open-source LLMs.
+> It performs semantic skill matching, transparent scoring, and ATS-aware resume rewriting.
+> The system supports GPT optionally but defaults to privacy-first local inference.”
 
-* Use t2.micro or higher
-* Open ports: 22, 80, 8501
-
-### 2. SSH into Instance
-
-```bash
-ssh -i your-key.pem ubuntu@your-ec2-public-ip
-```
-
-### 3. Install Dependencies
-
-```bash
-sudo apt update && sudo apt install docker.io git -y
-sudo systemctl start docker
-```
-
-### 4. Clone Repository on EC2
-
-```bash
-git clone https://github.com/KiranRathod4/AI-powered-resume_agent.git
-cd AI-powered-resume_agent
-```
-
-### 5. Build and Run Docker
-
-```bash
-docker build -t resume-agent .
-docker run -d -p 80:8501 -e OPENAI_API_KEY=your-key resume-agent
-```
-
-Now visit `http://your-ec2-public-ip` in your browser.
+That sentence alone puts you **above 90% of candidates**.
 
 ---
-
-## CI/CD with GitHub Actions
-
-###  `.github/workflows/deploy.yml` (included)
-
-Automatically deploy to EC2 on push to `main`. The workflow will:
-
-* SSH into EC2
-* Pull the latest code
-* Rebuild and restart the Docker container
-
-### 🔐 Required Secrets in GitHub
-
-Go to **Repo → Settings → Secrets → Actions**, add:
-
-* `EC2_HOST`
-* `EC2_USER`
-* `EC2_KEY` (your private SSH key)
-* `OPENAI_API_KEY`
-
----
-
-##  Future Enhancements
-
-* Add MongoDB or PostgreSQL for user storage
-* Enhance UI with animations and chatbot features
-* Integrate with other AI models (e.g., sentiment analysis)
-
----
-
-## License
-
-This project is licensed under the **MIT License**.
-
----
-
-## Author
-
-Created with ❤️ by [Kiran Rathod](https://github.com/KiranRathod4)
-
