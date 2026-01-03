@@ -6,12 +6,7 @@ import plotly.express as px
 # Page Setup
 # =========================
 def setup_page():
-    st.set_page_config(
-        page_title="Recruitr – AI Resume Analyzer",
-        page_icon="🤖",
-        layout="wide"
-    )
-
+    """Setup page styling"""
     st.markdown("""
     <style>
         .header-box {
@@ -38,6 +33,7 @@ def setup_page():
 # Header
 # =========================
 def display_header():
+    """Display app header"""
     st.markdown("""
     <div class="header-box">
         <h1>🤖 Recruitr</h1>
@@ -47,39 +43,10 @@ def display_header():
 
 
 # =========================
-# Sidebar
-# =========================
-def setup_sidebar():
-    st.sidebar.header("⚙️ Configuration")
-
-    config = {}
-
-    config["openai_api_key"] = st.sidebar.text_input(
-        "OpenAI API Key (optional)",
-        type="password",
-        help="Only required if using OpenAI backend"
-    )
-
-    config["cutoff_score"] = st.sidebar.slider(
-        "Selection Cutoff (%)",
-        50, 100, 80
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.info(
-        "Recruitr analyzes resumes using AI + semantic search.\n\n"
-        "• Skill scoring\n"
-        "• Interview questions\n"
-        "• Resume rewriting\n"
-    )
-
-    return config
-
-
-# =========================
-# Tabs
+# Tabs - ALL 5 TABS
 # =========================
 def create_tabs():
+    """Create main navigation tabs"""
     return st.tabs([
         "📄 Resume Analysis",
         "💬 Ask About Resume",
@@ -93,6 +60,7 @@ def create_tabs():
 # Role Selection
 # =========================
 def role_selection_section(role_requirements):
+    """Role and JD selection UI"""
     st.subheader("Target Role")
 
     method = st.radio(
@@ -109,7 +77,7 @@ def role_selection_section(role_requirements):
             list(role_requirements.keys())
         )
 
-        with st.expander("View required skills"):
+        with st.expander("👁️ View required skills"):
             for skill in role_requirements[role]:
                 st.markdown(f"- {skill}")
 
@@ -118,6 +86,8 @@ def role_selection_section(role_requirements):
             "Upload Job Description (PDF / TXT)",
             type=["pdf", "txt"]
         )
+        if custom_jd:
+            st.success("✅ Job description uploaded")
 
     return role, custom_jd
 
@@ -126,15 +96,17 @@ def role_selection_section(role_requirements):
 # Resume Upload
 # =========================
 def resume_upload_section():
+    """Resume upload UI"""
     st.subheader("Upload Resume")
 
     resume = st.file_uploader(
         "PDF or TXT format",
-        type=["pdf", "txt"]
+        type=["pdf", "txt"],
+        help="Upload your resume in PDF or TXT format (max 200MB)"
     )
 
     if resume:
-        st.success("Resume uploaded successfully")
+        st.success("✅ Resume uploaded successfully")
 
     return resume
 
@@ -143,168 +115,274 @@ def resume_upload_section():
 # Analysis Results
 # =========================
 def display_analysis_results(result):
+    """Display analysis results with metrics and charts"""
     if not result:
+        st.warning("No results to display")
         return
 
-    st.subheader("📊 Overall Evaluation")
+    st.divider()
+    st.subheader("📊 Analysis Results")
 
+    # Overall metrics
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Overall Score", f"{result['overall_score']}%")
+    overall_score = result.get('overall_score', 0)
+    
+    col1.metric("Overall Score", f"{overall_score}%")
     col2.metric(
         "Decision",
-        "SELECTED ✅" if result["selected"] else "NOT SELECTED ❌"
+        "✅ SELECTED" if result.get("selected", False) else "❌ NOT SELECTED"
     )
     col3.metric(
-        "Strength Count",
+        "Strengths",
         len(result.get("strengths", []))
     )
 
-    # Skill chart
-    st.subheader("Skill Scores")
+    # Skill scores chart
     skill_scores = result.get("skill_scores", {})
 
     if skill_scores:
+        st.subheader("📈 Skill Breakdown")
+        
         fig = px.bar(
             x=list(skill_scores.keys()),
             y=list(skill_scores.values()),
             labels={"x": "Skill", "y": "Score (0-10)"},
             color=list(skill_scores.values()),
-            color_continuous_scale="RdYlGn"
+            color_continuous_scale="RdYlGn",
+            range_color=[0, 10]
         )
+        fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
     # Strengths & gaps
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("💪 Strengths")
-        for s in result.get("strengths", []):
-            st.markdown(
-                f"<div class='card good'><b>{s}</b></div>",
-                unsafe_allow_html=True
-            )
+        st.subheader("💪 Strengths (Score ≥ 7)")
+        strengths = result.get("strengths", [])
+        if strengths:
+            for s in strengths:
+                score = skill_scores.get(s, 0)
+                st.markdown(
+                    f"<div class='card good'><b>{s}</b> - {score}/10</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("No strong skills identified")
 
     with col2:
-        st.subheader("⚠️ Gaps")
-        for s in result.get("missing_skills", []):
-            st.markdown(
-                f"<div class='card bad'><b>{s}</b></div>",
-                unsafe_allow_html=True
-            )
+        st.subheader("⚠️ Gaps (Score ≤ 5)")
+        gaps = result.get("missing_skills", [])
+        if gaps:
+            for s in gaps:
+                score = skill_scores.get(s, 0)
+                st.markdown(
+                    f"<div class='card bad'><b>{s}</b> - {score}/10</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.success("No major skill gaps!")
 
-    # Detailed weaknesses
-    if result.get("detailed_weaknesses"):
-        st.subheader("🔍 Detailed Feedback")
-
-        for w in result["detailed_weaknesses"]:
-            with st.expander(f"{w['skill']} (Score {w['score']}/10)"):
-                st.write(w["detail"])
-                for s in w.get("suggestions", []):
-                    st.markdown(f"- {s}")
-                if w.get("example"):
-                    st.code(w["example"])
+    # Detailed reasoning
+    with st.expander("🔍 Detailed Skill Analysis"):
+        reasoning = result.get("skill_reasoning", {})
+        for skill, reason in reasoning.items():
+            score = skill_scores.get(skill, 0)
+            st.markdown(f"**{skill}** ({score}/10): {reason}")
 
 
 # =========================
 # Resume Q&A
 # =========================
 def resume_qa_section(has_resume, ask_question_func):
-    st.subheader("Ask Questions About the Resume")
+    """Resume Q&A interface"""
+    st.subheader("💬 Ask Questions About the Resume")
 
     if not has_resume:
-        st.warning("Analyze a resume first.")
+        st.warning("⚠️ Please analyze a resume first in the 'Resume Analysis' tab.")
         return
 
-    question = st.text_input("Your question")
+    question = st.text_input(
+        "Your question",
+        placeholder="e.g., What are the candidate's main strengths in Python?"
+    )
 
-    if st.button("Get Answer") and question:
-        st.write(ask_question_func(question))
+    if st.button("Get Answer"):
+        if question:
+            with st.spinner("🤔 Thinking..."):
+                answer = ask_question_func(question)
+                st.markdown("### Answer:")
+                st.write(answer)
+        else:
+            st.warning("Please enter a question.")
 
 
 # =========================
-# Interview Questions
+# Interview Questions Section
 # =========================
-def interview_questions_section(has_resume, generate_questions_func):
-    st.subheader("Generate Interview Questions")
+def interview_questions_section(has_resume, generate_questions_func=None):
+    """Interview questions generation interface"""
+    st.subheader("🎯 Generate Interview Questions")
 
     if not has_resume:
-        st.warning("Analyze a resume first.")
+        st.warning("⚠️ Please analyze a resume first in the 'Resume Analysis' tab.")
         return
 
+    # Question type selection
     types = st.multiselect(
         "Question Types",
         ["Technical", "Behavioral", "Coding", "System Design"],
         default=["Technical", "Behavioral"]
     )
 
+    # Difficulty selection
     difficulty = st.selectbox(
-        "Difficulty",
+        "Difficulty Level",
         ["Easy", "Medium", "Hard"],
         index=1
     )
 
+    # Number of questions
     count = st.slider("Number of Questions", 1, 10, 5)
 
-    if st.button("Generate"):
-        questions = generate_questions_func(types, difficulty, count)
-        for i, (t, q) in enumerate(questions, 1):
-            with st.expander(f"{i}. {t}"):
-                st.write(q)
+    if st.button("Generate Questions", type="primary"):
+        if generate_questions_func:
+            with st.spinner("Generating interview questions..."):
+                try:
+                    questions = generate_questions_func(types, difficulty, count)
+                    
+                    st.success(f"✅ Generated {len(questions)} questions!")
+                    
+                    for i, (q_type, question) in enumerate(questions, 1):
+                        with st.expander(f"Question {i}: {q_type}"):
+                            st.write(question)
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+        else:
+            st.info("🚧 Interview question generation coming soon!")
 
 
 # =========================
-# Improvement Suggestions
+# Improvement Suggestions Section
 # =========================
-def resume_improvement_section(has_resume, improve_resume_func):
-    st.subheader("Resume Improvement Suggestions")
+def improvement_suggestions_section(has_resume, analysis_result=None):
+    """Resume improvement suggestions interface"""
+    st.subheader("📈 Resume Improvement Suggestions")
 
     if not has_resume:
-        st.warning("Analyze a resume first.")
+        st.warning("⚠️ Please analyze a resume first in the 'Resume Analysis' tab.")
         return
 
-    areas = st.multiselect(
-        "Improvement Areas",
-        [
-            "Skills Highlighting",
-            "Experience Description",
-            "Achievement Quantification",
-            "Keyword Optimization",
-            "Formatting"
-        ]
-    )
+    if not analysis_result:
+        st.info("No analysis results available.")
+        return
 
-    role = st.text_input("Target Role (optional)")
+    # Show missing skills
+    missing_skills = analysis_result.get("missing_skills", [])
+    if missing_skills:
+        st.markdown("### ⚠️ Skills to Develop")
+        st.write("Consider improving or adding these skills to your resume:")
+        for skill in missing_skills:
+            score = analysis_result.get("skill_scores", {}).get(skill, 0)
+            st.markdown(f"- **{skill}** (Current score: {score}/10)")
+        st.divider()
 
-    if st.button("Generate Suggestions"):
-        data = improve_resume_func(areas, role)
-        for area, content in data.items():
-            with st.expander(area):
-                st.write(content.get("description", ""))
-                for s in content.get("specific", []):
-                    st.markdown(f"- {s}")
+    # Show strengths to highlight
+    strengths = analysis_result.get("strengths", [])
+    if strengths:
+        st.markdown("### 💪 Strengths to Emphasize")
+        st.write("Make sure these skills are prominently featured:")
+        for skill in strengths:
+            score = analysis_result.get("skill_scores", {}).get(skill, 0)
+            st.markdown(f"- **{skill}** (Score: {score}/10)")
+        st.divider()
+
+    # General improvement tips
+    st.markdown("### 💡 General Tips")
+    
+    overall_score = analysis_result.get("overall_score", 0)
+    
+    if overall_score < 60:
+        st.warning("""
+        **Your resume needs significant improvement:**
+        - Add more relevant technical skills
+        - Include quantifiable achievements
+        - Expand on project experience
+        - Use industry-standard keywords
+        """)
+    elif overall_score < 80:
+        st.info("""
+        **Your resume is good but can be better:**
+        - Strengthen weak skill areas
+        - Add more specific examples
+        - Optimize for ATS systems
+        - Highlight leadership experience
+        """)
+    else:
+        st.success("""
+        **Your resume is strong!**
+        - Minor refinements in weak areas
+        - Keep content current and relevant
+        - Tailor for specific roles
+        """)
 
 
 # =========================
-# Improved Resume
+# Improved Resume Section
 # =========================
 def improved_resume_section(has_resume, get_improved_resume_func):
-    st.subheader("Rewrite Resume")
+    """Resume rewriting interface"""
+    st.subheader("✨ Rewrite Resume for Target Role")
 
     if not has_resume:
-        st.warning("Analyze a resume first.")
+        st.warning("⚠️ Please analyze a resume first in the 'Resume Analysis' tab.")
         return
 
-    role = st.text_input("Target Role")
-    skills = st.text_area("Skills to emphasize")
+    # Target role input
+    role = st.text_input(
+        "Target Role",
+        placeholder="e.g., Senior Data Scientist"
+    )
 
-    if st.button("Generate Resume"):
-        text = get_improved_resume_func(role, skills)
+    # Skills input
+    skills = st.text_area(
+        "Skills to emphasize (comma-separated)",
+        placeholder="Python, Machine Learning, SQL, etc.",
+        help="Leave empty to use skills from the analyzed role"
+    )
 
-        if text:
-            st.text_area("Improved Resume", text, height=500)
-            st.download_button(
-                "Download Resume",
-                text,
-                file_name="improved_resume.txt"
-            )
+    if st.button("Generate Resume", type="primary"):
+        if not role:
+            st.warning("⚠️ Please enter a target role.")
+        else:
+            with st.spinner("✍️ Generating improved resume..."):
+                try:
+                    improved_text = get_improved_resume_func(role, skills)
+                    
+                    if improved_text:
+                        st.success("✅ Resume generated successfully!")
+                        st.divider()
+                        
+                        # Display improved resume
+                        st.markdown("### Improved Resume:")
+                        st.text_area(
+                            "Preview",
+                            improved_text,
+                            height=500,
+                            label_visibility="collapsed"
+                        )
+                        
+                        # Download button
+                        st.download_button(
+                            label="📥 Download Resume",
+                            data=improved_text,
+                            file_name=f"improved_resume_{role.replace(' ', '_')}.txt",
+                            mime="text/plain"
+                        )
+                    else:
+                        st.error("Failed to generate resume. Please try again.")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.code(str(e))

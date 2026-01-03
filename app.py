@@ -31,15 +31,11 @@ ROLE_REQUIREMENTS = {
         "Python", "SQL", "Pandas", "NumPy", "Statistics", "Machine Learning",
         "EDA", "Data Visualization"
     ],
-
-    # ✅ NEW ROLE 1
     "DevOps Engineer": [
         "Linux", "Docker", "Kubernetes", "AWS/GCP/Azure", "CI/CD",
         "Terraform", "Ansible", "Jenkins", "Monitoring", "Prometheus",
         "Grafana", "Shell Scripting", "System Design"
     ],
-
-    # ✅ NEW ROLE 2
     "Data Engineer": [
         "Python", "SQL", "ETL Pipelines", "Apache Spark", "Airflow",
         "Kafka", "Data Warehousing", "BigQuery", "Snowflake",
@@ -111,8 +107,9 @@ def main():
         if st.session_state.resume_analyzed:
             ui.improved_resume_section(
                 has_resume=True,
-                get_improved_resume_func=lambda role:
-                st.session_state.agent.get_improved_resume(role)
+                # ✅ FIXED: Lambda now accepts both role and skills
+                get_improved_resume_func=lambda role, skills="": 
+                st.session_state.agent.get_improved_resume(role, skills)
             )
         else:
             st.warning("Please analyze a resume first.")
