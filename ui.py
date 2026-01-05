@@ -50,9 +50,9 @@ def create_tabs():
     return st.tabs([
         "📄 Resume Analysis",
         "💬 Ask About Resume",
-        "🎯 Interview Questions",
+        "✨ Rewrite Resume",
         "📈 Improvement Suggestions",
-        "✨ Rewrite Resume"
+        "🎯 Interview Questions"                     #✨ Rewrite Resume
     ])
 
 
