@@ -2,6 +2,7 @@ import streamlit as st
 import atexit
 
 from agents import ResumeAnalyzer
+from services.export import export_to_excel, export_to_pdf, export_comparison_to_pdf
 import ui
 
 
@@ -72,7 +73,7 @@ def main():
 
     tabs = ui.create_tabs()
 
-    # -------- TAB 1: Resume Analysis --------
+    # -------- TAB 0: Resume Analysis --------
     with tabs[0]:
         role, custom_jd = ui.role_selection_section(ROLE_REQUIREMENTS)
         uploaded_resume = ui.resume_upload_section()
@@ -91,28 +92,64 @@ def main():
 
         if st.session_state.analysis_result:
             ui.display_analysis_results(st.session_state.analysis_result)
+            
+            # Export single resume report
+            st.divider()
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col2:
+                pdf_data = export_to_pdf(
+                    st.session_state.analysis_result,
+                    uploaded_resume.name if uploaded_resume else "Resume"
+                )
+                st.download_button(
+                    label="📥 Download PDF Report",
+                    data=pdf_data,
+                    file_name="resume_analysis_report.pdf",
+                    mime="application/pdf"
+                )
 
-    # -------- TAB 2: Resume Q&A --------
+    # -------- TAB 1: Bulk Analysis --------
     with tabs[1]:
-        if st.session_state.resume_analyzed:
-            ui.resume_qa_section(
-                has_resume=True,
-                ask_question_func=lambda q: st.session_state.agent.ask_question(q)
-            )
-        else:
-            st.warning("Please analyze a resume first.")
+        ui.bulk_analysis_section(
+            analyze_bulk_func=lambda resumes, jd: st.session_state.agent.analyze_bulk_resumes(resumes, jd),
+            export_to_excel_func=export_to_excel
+        )
 
-    # -------- TAB 3: Improved Resume --------
+    # -------- TAB 2: Comparison Mode --------
     with tabs[2]:
-        if st.session_state.resume_analyzed:
-            ui.improved_resume_section(
-                has_resume=True,
-                # ✅ FIXED: Lambda now accepts both role and skills
-                get_improved_resume_func=lambda role, skills="": 
+        ui.comparison_section(
+            compare_func=lambda a, b, jd: st.session_state.agent.compare_resumes(a, b, jd),
+            export_comparison_pdf_func=export_comparison_to_pdf
+        )
+
+    # -------- TAB 3: Resume Q&A --------
+    with tabs[3]:
+        ui.resume_qa_section(
+            has_resume=st.session_state.resume_analyzed,
+            ask_question_func=lambda q: st.session_state.agent.ask_question(q)
+        )
+
+    # -------- TAB 4: Rewrite Resume --------
+    with tabs[4]:
+        ui.improved_resume_section(
+            has_resume=st.session_state.resume_analyzed,
+            get_improved_resume_func=lambda role, skills: 
                 st.session_state.agent.get_improved_resume(role, skills)
-            )
-        else:
-            st.warning("Please analyze a resume first.")
+        )
+
+    # -------- TAB 5: Improvement Suggestions --------
+    with tabs[5]:
+        ui.improvement_suggestions_section(
+            has_resume=st.session_state.resume_analyzed,
+            analysis_result=st.session_state.analysis_result
+        )
+
+    # -------- TAB 6: Interview Questions --------
+    with tabs[6]:
+        ui.interview_questions_section(
+            has_resume=st.session_state.resume_analyzed,
+            generate_questions_func=None  # Coming soon
+        )
 
 
 if __name__ == "__main__":

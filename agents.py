@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import PyPDF2
 
-# ✅ FIXED: Use new non-deprecated imports
 try:
     from langchain_ollama import OllamaLLM
 except ImportError:
@@ -20,6 +19,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from services.improvement import rewrite_resume_ats
+from services.ats_scorer import calculate_ats_score
 
 
 # =========================================================
@@ -31,10 +31,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def get_llm(temperature=0.4):
-    """
-    Default: Local LLaMA 3.2 via Ollama
-    Optional: GPT (if USE_GPT=true and API key is set)
-    """
+    """Default: Local LLaMA 3.2 via Ollama"""
     if USE_GPT and OPENAI_API_KEY:
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
@@ -164,20 +161,14 @@ Job Description:
     # -----------------------------------------------------
 
     def query_with_context(self, vectorstore, query):
-        """
-        Simple RAG: retrieve relevant docs and query LLM with context
-        No chains needed - direct approach
-        """
+        """Simple RAG: retrieve relevant docs and query LLM with context"""
         llm = get_llm()
         
-        # Get relevant documents using invoke (modern API)
         retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-        docs = retriever.invoke(query)  # ✅ FIXED: Changed from get_relevant_documents to invoke
+        docs = retriever.invoke(query)
         
-        # Combine context
         context = "\n\n".join([doc.page_content for doc in docs])
         
-        # Create prompt with context
         full_prompt = f"""Based on the following context, answer the question.
 
 Context:
@@ -187,7 +178,6 @@ Question: {query}
 
 Answer:"""
         
-        # Get response
         response = llm.invoke(full_prompt)
         return response.content if hasattr(response, "content") else str(response)
 
@@ -205,7 +195,6 @@ Answer:"""
         
         response = self.query_with_context(vectorstore, query)
         
-        # Parse score
         match = re.search(r"(\d{1,2})", response)
         score = min(int(match.group(1)), 10) if match else 0
         reasoning = response.split(".", 1)[1].strip() if "." in response else response
@@ -268,8 +257,124 @@ Answer:"""
             self.resume_text,
             self.extracted_skills
         )
+        
+        # Add ATS score
+        ats_result = calculate_ats_score(self.resume_text)
+        self.analysis_result['ats_score'] = ats_result
 
         return self.analysis_result
+
+
+    # -----------------------------------------------------
+    # BULK PROCESSING (NEW)
+    # -----------------------------------------------------
+
+    def analyze_bulk_resumes(self, resume_files, custom_jd=None):
+        """
+        Analyze multiple resumes at once
+        
+        Args:
+            resume_files: List of uploaded resume files
+            custom_jd: Optional job description file
+        
+        Returns:
+            List of results with format: [{'name': str, 'result': dict}, ...]
+        """
+        results = []
+        
+        # Extract JD skills once
+        if custom_jd:
+            self.jd_text = self.extract_text_from_file(custom_jd)
+            self.extracted_skills = self.extract_skills_from_jd(self.jd_text)
+        
+        if not self.extracted_skills:
+            return []
+        
+        # Analyze each resume
+        for resume_file in resume_files:
+            try:
+                resume_text = self.extract_text_from_file(resume_file)
+                result = self.semantic_skill_analysis(resume_text, self.extracted_skills)
+                
+                # Add ATS score
+                ats_result = calculate_ats_score(resume_text)
+                result['ats_score'] = ats_result
+                
+                results.append({
+                    'name': resume_file.name,
+                    'result': result
+                })
+            except Exception as e:
+                print(f"Error analyzing {resume_file.name}: {e}")
+                results.append({
+                    'name': resume_file.name,
+                    'result': {'error': str(e)}
+                })
+        
+        return results
+
+
+    # -----------------------------------------------------
+    # COMPARISON MODE (NEW)
+    # -----------------------------------------------------
+
+    def compare_resumes(self, resume_a, resume_b, custom_jd=None):
+        """
+        Compare two resumes side-by-side
+        
+        Args:
+            resume_a: First resume file
+            resume_b: Second resume file
+            custom_jd: Optional job description
+        
+        Returns:
+            Dict with comparison results
+        """
+        # Extract skills from JD
+        if custom_jd:
+            self.jd_text = self.extract_text_from_file(custom_jd)
+            self.extracted_skills = self.extract_skills_from_jd(self.jd_text)
+        
+        if not self.extracted_skills:
+            return None
+        
+        # Analyze both resumes
+        text_a = self.extract_text_from_file(resume_a)
+        text_b = self.extract_text_from_file(resume_b)
+        
+        result_a = self.semantic_skill_analysis(text_a, self.extracted_skills)
+        result_b = self.semantic_skill_analysis(text_b, self.extracted_skills)
+        
+        # Add ATS scores
+        result_a['ats_score'] = calculate_ats_score(text_a)
+        result_b['ats_score'] = calculate_ats_score(text_b)
+        
+        # Compare
+        comparison = {
+            'scores': {
+                'resume_a': result_a['overall_score'],
+                'resume_b': result_b['overall_score']
+            },
+            'ats_scores': {
+                'resume_a': result_a['ats_score']['score'],
+                'resume_b': result_b['ats_score']['score']
+            },
+            'strengths_count': {
+                'resume_a': len(result_a['strengths']),
+                'resume_b': len(result_b['strengths'])
+            },
+            'gaps_count': {
+                'resume_a': len(result_a['missing_skills']),
+                'resume_b': len(result_b['missing_skills'])
+            },
+            'winner': 'Resume A' if result_a['overall_score'] > result_b['overall_score'] else 'Resume B'
+        }
+        
+        return {
+            'resume_a': result_a,
+            'resume_b': result_b,
+            'comparison': comparison
+        }
 
 
     # -----------------------------------------------------
